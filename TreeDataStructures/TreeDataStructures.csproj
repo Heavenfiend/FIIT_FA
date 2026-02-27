@@ -6,6 +6,7 @@
         <LangVersion>14</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
         <InvariantGlobalization>true</InvariantGlobalization>
     </PropertyGroup>
 
