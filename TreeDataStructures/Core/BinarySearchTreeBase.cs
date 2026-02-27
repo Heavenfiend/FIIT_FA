@@ -298,21 +298,25 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     /// </summary>
     private struct TreeIterator : 
         IEnumerable<TreeEntry<TKey, TValue>>,
-        IEnumerator<TreeEntry<TKey, TValue>>
+        IEnumerable<KeyValuePair<TKey, TValue>>,
+        IEnumerator<TreeEntry<TKey, TValue>>,
+        IEnumerator<KeyValuePair<TKey, TValue>>
     {
         private readonly TraversalStrategy _strategy;
         private readonly TNode? _root;
         private Stack<TNode>? _stack;
         private TNode? _current;
         private TNode? _lastVisited;
+        private readonly bool _isDictionaryIterator;
 
-        public TreeIterator(TNode? root, TraversalStrategy strategy)
+        public TreeIterator(TNode? root, TraversalStrategy strategy, bool isDictionaryIterator = false)
         {
             _root = root;
             _strategy = strategy;
             _stack = new Stack<TNode>();
             _current = null;
             _lastVisited = null;
+            _isDictionaryIterator = isDictionaryIterator;
 
             Initialize();
         }
@@ -363,6 +367,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
         }
 
         public IEnumerator<TreeEntry<TKey, TValue>> GetEnumerator() => this;
+        IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator() => this;
         IEnumerator IEnumerable.GetEnumerator() => this;
         
         public TreeEntry<TKey, TValue> Current
@@ -377,7 +382,16 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             }
         }
         
-        object IEnumerator.Current => Current;
+        KeyValuePair<TKey, TValue> IEnumerator<KeyValuePair<TKey, TValue>>.Current
+        {
+            get
+            {
+                if (_current == null) throw new InvalidOperationException();
+                return new KeyValuePair<TKey, TValue>(_current.Key, _current.Value);
+            }
+        }
+
+        object IEnumerator.Current => _isDictionaryIterator ? ((IEnumerator<KeyValuePair<TKey, TValue>>)this).Current : Current;
         
         public bool MoveNext()
         {
@@ -557,13 +571,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     
     private enum TraversalStrategy { InOrder, PreOrder, PostOrder, InOrderReverse, PreOrderReverse, PostOrderReverse }
     
-    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
-    {
-        foreach (var entry in InOrder())
-        {
-            yield return new KeyValuePair<TKey, TValue>(entry.Key, entry.Value);
-        }
-    }
+    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => new TreeIterator(Root, TraversalStrategy.InOrder, isDictionaryIterator: true);
     
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
