@@ -95,10 +95,10 @@ public class Treap<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, TreapNode<
         if (node == null) return false;
 
         var parent = node.Parent;
-        // Merge children to create a replacement tree
+
         TreapNode<TKey, TValue>? merged = Merge(node.Left, node.Right);
 
-        // Replace node with merged
+
         Transplant(node, merged);
 
         Count--;
