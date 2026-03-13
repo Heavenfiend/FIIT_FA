@@ -331,7 +331,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                      _next = _root;
                      break;
                  case TraversalStrategy.PreOrderReverse:
-                     _next = GetPostOrderReverseFirst(_root);
+                     _next = GetPreOrderReverseFirst(_root);
                      break;
 
                  case TraversalStrategy.InOrder:
@@ -367,17 +367,17 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             while (node.Left != null || node.Right != null)
             {
                 if (node.Left != null) node = node.Left;
-                else node = node.Right;
+                else node = node.Right!;
             }
             return node;
         }
 
-        private static TNode GetPostOrderReverseFirst(TNode node)
+        private static TNode GetPreOrderReverseFirst(TNode node)
         {
             while (node.Right != null || node.Left != null)
             {
                 if (node.Right != null) node = node.Right;
-                else node = node.Left;
+                else node = node.Left!;
             }
             return node;
         }
@@ -432,7 +432,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                     _next = GetNextPreOrder(_current);
                     break;
                 case TraversalStrategy.PreOrderReverse:
-                    _next = GetNextPostOrderReverse(_current);
+                    _next = GetNextPreOrderReverse(_current);
                     break;
                 case TraversalStrategy.InOrder:
                     _next = GetNextInOrder(_current);
@@ -444,7 +444,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                     _next = GetNextPostOrder(_current);
                     break;
                 case TraversalStrategy.PostOrderReverse:
-                    _next = GetNextPreOrderReverse(_current);
+                    _next = GetNextPostOrderReverse(_current);
                     break;
             }
         }
@@ -477,7 +477,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             return null;
         }
 
-        private static TNode? GetNextPreOrderReverse(TNode node)
+        private static TNode? GetNextPostOrderReverse(TNode node)
         {
             if (node.Right != null) return node.Right;
             if (node.Left != null) return node.Left;
@@ -497,12 +497,12 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             return GetPostOrderFirst(p.Right);
         }
 
-        private static TNode? GetNextPostOrderReverse(TNode node)
+        private static TNode? GetNextPreOrderReverse(TNode node)
         {
             var p = node.Parent;
             if (p == null) return null;
             if (node == p.Left || p.Left == null) return p;
-            return GetPostOrderReverseFirst(p.Left);
+            return GetPreOrderReverseFirst(p.Left);
         }
         
         public void Reset()
