@@ -18,8 +18,7 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
 
     protected override void OnNodeRemoved(RbNode<TKey, TValue>? parent, RbNode<TKey, TValue>? child)
     {
-        // This won't be called directly for standard RB-Tree deletion because
-        // we will override RemoveNode directly.
+        
     }
 
     protected override void RemoveNode(RbNode<TKey, TValue> z)
@@ -182,7 +181,7 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
                     SetColor(w?.Right, RbColor.Black);
                     RotateLeft(xParent);
                     x = Root as RbNode<TKey, TValue>;
-                    xParent = null; // Exit loop
+                    xParent = null; 
                 }
             }
             else
@@ -215,7 +214,7 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
                     SetColor(w?.Left, RbColor.Black);
                     if (xParent != null) RotateRight(xParent);
                     x = Root as RbNode<TKey, TValue>;
-                    xParent = null; // Exit loop
+                    xParent = null; 
                 }
             }
         }
