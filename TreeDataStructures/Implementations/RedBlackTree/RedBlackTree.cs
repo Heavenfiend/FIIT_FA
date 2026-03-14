@@ -154,37 +154,39 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
             if (x == xParent?.Left)
             {
                 var w = xParent.Right;
-                if (GetColor(w) == RbColor.Red)
+                if (GetColor(w) == RbColor.Red) // случай 1 брат (w) красный
                 {
-                    SetColor(w, RbColor.Black);
-                    SetColor(xParent, RbColor.Red);
-                    RotateLeft(xParent);
-                    w = xParent.Right;
+                    SetColor(w, RbColor.Black);      // красим брата в черный
+                    SetColor(xParent, RbColor.Red);   // красим родителя в красный
+                    RotateLeft(xParent);             // делаем левый поворот
+                    w = xParent.Right;               // обновляем брата после поворота
                 }
-                if (GetColor(w?.Left) == RbColor.Black && GetColor(w?.Right) == RbColor.Black)
+                if (GetColor(w?.Left) == RbColor.Black && GetColor(w?.Right) == RbColor.Black) // случай 2 брат черный, и оба его ребенка тоже черные
                 {
-                    SetColor(w, RbColor.Red);
-                    x = xParent;
+                    SetColor(w, RbColor.Red); // dелаем брата красным
+                    x = xParent; // переносим двойную черность на родителя
                     xParent = x?.Parent;
                 }
                 else
                 {
-                    if (GetColor(w?.Right) == RbColor.Black)
+                    if (GetColor(w?.Right) == RbColor.Black) // случай 3 брат черный, его левый ребенок красный, а правый черный
                     {
-                        SetColor(w?.Left, RbColor.Black);
-                        SetColor(w, RbColor.Red);
-                        if (w != null) RotateRight(w);
-                        w = xParent.Right;
+                        SetColor(w?.Left, RbColor.Black); // ккрасим левого племянника в черный
+                        SetColor(w, RbColor.Red); // красим брата в красный
+                        if (w != null) RotateRight(w); // правый поворот вокруг брата
+                        w = xParent.Right;  // обновляем брата
                     }
-                    SetColor(w, GetColor(xParent));
-                    SetColor(xParent, RbColor.Black);
-                    SetColor(w?.Right, RbColor.Black);
-                    RotateLeft(xParent);
+                    
+                    // случай 4 брат черный, его правый ребенок красный
+                    SetColor(w, GetColor(xParent)); // брат берет цвет родителя
+                    SetColor(xParent, RbColor.Black); // родитель становится черным
+                    SetColor(w?.Right, RbColor.Black); // правый племянник становится черным
+                    RotateLeft(xParent); // финальный левый поворот
                     x = Root as RbNode<TKey, TValue>;
                     xParent = null; 
                 }
             }
-            else
+            else // тут все зеркально только для правой стороны
             {
                 var w = xParent?.Left;
                 if (GetColor(w) == RbColor.Red)
