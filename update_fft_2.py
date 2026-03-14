@@ -1,63 +1,10 @@
-using System;
-using System.Numerics;
-using System.Runtime.InteropServices;
-using Arithmetic.BigInt.Interfaces;
+import re
 
-namespace Arithmetic.BigInt.MultiplyStrategy;
+with open("Arithmetic/BigInt/MultiplyStrategy/FftMultiplier.cs", "r") as f:
+    code = f.read()
 
-internal class FftMultiplier : IMultiplier
-{
-    public BetterBigInteger Multiply(BetterBigInteger a, BetterBigInteger b)
-    {
-        var da = a.GetDigits();
-        var db = b.GetDigits();
-
-        if (da.Length == 1 && da[0] == 0) return new BetterBigInteger(new uint[] { 0 });
-        if (db.Length == 1 && db[0] == 0) return new BetterBigInteger(new uint[] { 0 });
-
-        ushort[] aChunks = ToUshortChunks(da);
-        ushort[] bChunks = ToUshortChunks(db);
-
-        int maxChunks = aChunks.Length + bChunks.Length;
-        int n = 1;
-        while (n < maxChunks) n <<= 1;
-
-        Complex[] ca = new Complex[n];
-        for (int i = 0; i < aChunks.Length; i++) ca[i] = new Complex(aChunks[i], 0);
-
-        Complex[] cb = new Complex[n];
-        for (int i = 0; i < bChunks.Length; i++) cb[i] = new Complex(bChunks[i], 0);
-
-        Fft(ca, false);
-        Fft(cb, false);
-
-        for (int i = 0; i < n; i++)
-        {
-            ca[i] = ca[i] * cb[i];
-        }
-
-        Fft(ca, true);
-
-        ulong[] resChunks = new ulong[n];
-        for (int i = 0; i < n; i++)
-        {
-            resChunks[i] = (ulong)Math.Round(ca[i].Real);
-        }
-
-        return FromChunks(resChunks, a.IsNegative != b.IsNegative);
-    }
-
-    private static ushort[] ToUshortChunks(ReadOnlySpan<uint> digits)
-    {
-        ushort[] chunks = new ushort[digits.Length * 2];
-        for (int i = 0; i < digits.Length; i++)
-        {
-            chunks[i * 2] = (ushort)(digits[i] & 0xFFFF);
-            chunks[i * 2 + 1] = (ushort)(digits[i] >> 16);
-        }
-        return chunks;
-    }
-
+# I see a bug in the Fft implementation. The variable names and array indexing is slightly flawed. Let's fix Fft.
+fft_code = """
     private static void Fft(Complex[] a, bool invert)
     {
         int n = a.Length;
@@ -142,3 +89,9 @@ internal class FftMultiplier : IMultiplier
         return new BetterBigInteger(res, isNegative);
     }
 }
+"""
+
+code = re.sub(r'private static void Fft\(Complex\[\] a, bool invert\).*$', fft_code.strip() + '\n', code, flags=re.DOTALL)
+
+with open("Arithmetic/BigInt/MultiplyStrategy/FftMultiplier.cs", "w") as f:
+    f.write(code)
