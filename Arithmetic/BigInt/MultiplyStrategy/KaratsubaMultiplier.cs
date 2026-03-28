@@ -15,17 +15,17 @@ internal class KaratsubaMultiplier : IMultiplier
 
     private uint[] Multiply(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b)
     {
-        if (a.Length == 0 || b.Length == 0) return Array.Empty<uint>();
+        if (a.Length == 0 || b.Length == 0) return Array.Empty<uint>(); // ноль равен
 
         if (a.Length <= Threshold || b.Length <= Threshold)
         {
-            return SimpleMultiply(a, b);
+            return SimpleMultiply(a, b); // если маленькие числа
         }
 
         int m = Math.Max(a.Length, b.Length) / 2;
 
-        ReadOnlySpan<uint> low1 = a.Slice(0, Math.Min(m, a.Length));
-        ReadOnlySpan<uint> high1 = m < a.Length ? a.Slice(m) : ReadOnlySpan<uint>.Empty;
+        ReadOnlySpan<uint> low1 = a.Slice(0, Math.Min(m, a.Length)); // режем пополам (может вязть все число)
+        ReadOnlySpan<uint> high1 = m < a.Length ? a.Slice(m) : ReadOnlySpan<uint>.Empty; // закидываем high
 
         ReadOnlySpan<uint> low2 = b.Slice(0, Math.Min(m, b.Length));
         ReadOnlySpan<uint> high2 = m < b.Length ? b.Slice(m) : ReadOnlySpan<uint>.Empty;
@@ -42,7 +42,7 @@ internal class KaratsubaMultiplier : IMultiplier
         return Combine(z0, subZ1, z2, m);
     }
 
-    private uint[] SimpleMultiply(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b)
+    private uint[] SimpleMultiply(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b) // тот же метод столбиком только на входе у нас спаны для чтения 
     {
         if (a.Length == 0 || b.Length == 0) return Array.Empty<uint>();
         uint[] res = new uint[a.Length + b.Length];
@@ -65,10 +65,10 @@ internal class KaratsubaMultiplier : IMultiplier
         return res;
     }
 
-    private uint[] Add(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b)
+    private uint[] Add(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b) // обычное сложение 
     {
         int maxLen = Math.Max(a.Length, b.Length);
-        uint[] res = new uint[maxLen + 1];
+        uint[] res = new uint[maxLen + 1]; // на размер больше на всякий
         ulong carry = 0;
         for (int i = 0; i < maxLen || carry > 0; i++)
         {
@@ -81,7 +81,7 @@ internal class KaratsubaMultiplier : IMultiplier
         return res;
     }
 
-    private uint[] Subtract(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b)
+    private uint[] Subtract(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b) // обычное вычитание 
     {
         uint[] res = new uint[a.Length];
         long borrow = 0;
@@ -105,10 +105,10 @@ internal class KaratsubaMultiplier : IMultiplier
 
     private uint[] Combine(ReadOnlySpan<uint> z0, ReadOnlySpan<uint> z1, ReadOnlySpan<uint> z2, int m)
     {
-        int len = Math.Max(z0.Length, Math.Max(z1.Length + m, z2.Length + 2 * m)) + 1;
+        int len = Math.Max(z0.Length, Math.Max(z1.Length + m, z2.Length + 2 * m)) + 1; // ищем для длины
         uint[] res = new uint[len];
-
-        AddInPlace(res, z0, 0);
+        // сложение со сдвигами
+        AddInPlace(res, z0, 0); 
         AddInPlace(res, z1, m);
         AddInPlace(res, z2, 2 * m);
 
@@ -120,11 +120,11 @@ internal class KaratsubaMultiplier : IMultiplier
         ulong carry = 0;
         for (int i = 0; i < val.Length || carry > 0; i++)
         {
-            if (offset + i >= res.Length) break;
+            if (offset + i >= res.Length) break; // проверка на выход за пределы
             ulong sum = res[offset + i] + carry;
-            if (i < val.Length) sum += val[i];
-            res[offset + i] = (uint)sum;
-            carry = sum >> 32;
+            if (i < val.Length) sum += val[i]; // к сумме значение
+            res[offset + i] = (uint)sum; // записываем в массив
+            carry = sum >> 32; // перенос
         }
     }
 }

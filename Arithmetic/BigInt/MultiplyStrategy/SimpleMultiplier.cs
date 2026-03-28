@@ -9,10 +9,10 @@ internal class SimpleMultiplier : IMultiplier
         var da = a.GetDigits();
         var db = b.GetDigits();
 
-        if (da.Length == 1 && da[0] == 0) return new BetterBigInteger(new uint[] { 0 });
+        if (da.Length == 1 && da[0] == 0) return new BetterBigInteger(new uint[] { 0 }); // равен ноль значит рез ноль будет
         if (db.Length == 1 && db[0] == 0) return new BetterBigInteger(new uint[] { 0 });
 
-        uint[] res = new uint[da.Length + db.Length];
+        uint[] res = new uint[da.Length + db.Length]; // длина складывается из длин
 
         for (int i = 0; i < da.Length; i++)
         {
@@ -22,11 +22,11 @@ internal class SimpleMultiplier : IMultiplier
             {
                 ulong prod = ai * db[j] + res[i + j] + carry;
                 res[i + j] = (uint)prod;
-                carry = prod >> 32;
+                carry = prod >> 32; // перенос в след разряд
             }
             if (carry > 0)
             {
-                res[i + db.Length] += (uint)carry;
+                res[i + db.Length] += (uint)carry; // остаток записываем ВАЖНО что индекс + ДЛИНА
             }
         }
 

@@ -12,63 +12,63 @@ internal class FftMultiplier : IMultiplier
         var da = a.GetDigits();
         var db = b.GetDigits();
 
-        if (da.Length == 1 && da[0] == 0) return new BetterBigInteger(new uint[] { 0 });
+        if (da.Length == 1 && da[0] == 0) return new BetterBigInteger(new uint[] { 0 }); // ноль 
         if (db.Length == 1 && db[0] == 0) return new BetterBigInteger(new uint[] { 0 });
 
-        ushort[] aChunks = ToUshortChunks(da);
+        ushort[] aChunks = ToUshortChunks(da); // на два по 16 бит чтобы влез в dble
         ushort[] bChunks = ToUshortChunks(db);
 
         int maxChunks = aChunks.Length + bChunks.Length;
         int n = 1;
-        while (n < maxChunks) n <<= 1;
+        while (n < maxChunks) n <<= 1; //  находим ближ степень 2
 
         Complex[] ca = new Complex[n];
-        for (int i = 0; i < aChunks.Length; i++) ca[i] = new Complex(aChunks[i], 0);
+        for (int i = 0; i < aChunks.Length; i++) ca[i] = new Complex(aChunks[i], 0); // создаем массивы комплексных чисел
 
         Complex[] cb = new Complex[n];
         for (int i = 0; i < bChunks.Length; i++) cb[i] = new Complex(bChunks[i], 0);
 
-        Fft(ca, false);
+        Fft(ca, false); // перевод в точки
         Fft(cb, false);
 
         for (int i = 0; i < n; i++)
         {
-            ca[i] = ca[i] * cb[i];
+            ca[i] = ca[i] * cb[i]; // 1*1 2*2 и т.д. точки
         }
 
-        Fft(ca, true);
+        Fft(ca, true); // обратно из фурье
 
         ulong[] resChunks = new ulong[n];
         for (int i = 0; i < n; i++)
         {
-            resChunks[i] = (ulong)Math.Round(ca[i].Real);
+            resChunks[i] = (ulong)Math.Round(ca[i].Real); // округляем
         }
 
-        return FromChunks(resChunks, a.IsNegative != b.IsNegative);
+        return FromChunks(resChunks, a.IsNegative != b.IsNegative); // итог
     }
 
-    private static ushort[] ToUshortChunks(ReadOnlySpan<uint> digits)
+    private static ushort[] ToUshortChunks(ReadOnlySpan<uint> digits) 
     {
         ushort[] chunks = new ushort[digits.Length * 2];
         for (int i = 0; i < digits.Length; i++)
         {
-            chunks[i * 2] = (ushort)(digits[i] & 0xFFFF);
-            chunks[i * 2 + 1] = (ushort)(digits[i] >> 16);
+            chunks[i * 2] = (ushort)(digits[i] & 0xFFFF); // первые 16 
+            chunks[i * 2 + 1] = (ushort)(digits[i] >> 16); // следующие 
         }
         return chunks;
     }
 
-    private static void Fft(Complex[] a, bool invert)
+    private static void Fft(Complex[] a, bool invert) // получаем массив с точками (значениями в комплексных корнях)
     {
         int n = a.Length;
-        for (int i = 1, j = 0; i < n; i++)
+        for (int i = 1, j = 0; i < n; i++) // битовая реверсия для деления массива (001 и 100)
         {
-            int bit = n >> 1;
+            int bit = n >> 1; // прибавим единицу к числу j слева
             for (; (j & bit) != 0; bit >>= 1)
                 j ^= bit;
-            j ^= bit;
+            j ^= bit; 
 
-            if (i < j)
+            if (i < j) // меняем местами только когда i меньше j 
             {
                 var temp = a[i];
                 a[i] = a[j];
@@ -78,34 +78,34 @@ internal class FftMultiplier : IMultiplier
 
         for (int len = 2; len <= n; len <<= 1)
         {
-            double angle = 2 * Math.PI / len * (invert ? -1 : 1);
-            Complex wlen = new Complex(Math.Cos(angle), Math.Sin(angle));
+            double angle = 2 * Math.PI / len * (invert ? -1 : 1); // делим круг на длину группы
+            Complex wlen = new Complex(Math.Cos(angle), Math.Sin(angle)); // шаг
             for (int i = 0; i < n; i += len)
             {
                 Complex w = new Complex(1, 0);
                 for (int j = 0; j < len / 2; j++)
                 {
-                    Complex u = a[i + j];
-                    Complex v = a[i + j + len / 2] * w;
-                    a[i + j] = u + v;
-                    a[i + j + len / 2] = u - v;
-                    w *= wlen;
+                    Complex u = a[i + j]; // эл из лев половины
+                    Complex v = a[i + j + len / 2] * w; // эл из правой пол умнож на поворот
+                    a[i + j] = u + v; // В левую ячейку записываем сумму
+                    a[i + j + len / 2] = u - v; // в правую - разность
+                    w *= wlen; // поворачиваем для след пары
                 }
             }
         }
 
-        if (invert)
+        if (invert) // если мы из фурье в норм число
         {
             for (int i = 0; i < n; i++)
                 a[i] /= n;
         }
     }
 
-    private static BetterBigInteger FromChunks(ulong[] chunks, bool isNegative)
+    private static BetterBigInteger FromChunks(ulong[] chunks, bool isNegative) // превращаем в нормальное число
     {
         ulong carry = 0;
         int maxIndex = -1;
-        for (int i = 0; i < chunks.Length; i++)
+        for (int i = 0; i < chunks.Length; i++) // аналог сложения в столбик(перенос все что больше 16 бит)
         {
             ulong val = chunks[i] + carry;
             chunks[i] = val & 0xFFFF;
@@ -113,7 +113,7 @@ internal class FftMultiplier : IMultiplier
             if (chunks[i] != 0) maxIndex = i;
         }
 
-        while (carry > 0)
+        while (carry > 0) // дописываем переполнение в конец
         {
             maxIndex++;
             if (maxIndex < chunks.Length)
@@ -128,7 +128,7 @@ internal class FftMultiplier : IMultiplier
             carry >>= 16;
         }
 
-        if (maxIndex < 0) return new BetterBigInteger(new uint[] { 0 });
+        if (maxIndex < 0) return new BetterBigInteger(new uint[] { 0 }); // число состоит из 0
 
         int uintLen = (maxIndex / 2) + 1;
         uint[] res = new uint[uintLen];
@@ -136,7 +136,7 @@ internal class FftMultiplier : IMultiplier
         {
             uint low = (uint)(i * 2 < chunks.Length ? chunks[i * 2] : 0);
             uint high = (uint)(i * 2 + 1 < chunks.Length ? chunks[i * 2 + 1] : 0);
-            res[i] = low | (high << 16);
+            res[i] = low | (high << 16); // склеиваем тлоько high вставляем на 16 бит позже
         }
 
         return new BetterBigInteger(res, isNegative);
