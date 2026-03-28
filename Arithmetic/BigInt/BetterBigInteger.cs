@@ -104,20 +104,45 @@ public sealed class BetterBigInteger : IBigInteger, IComparable<BetterBigInteger
         Initialize(CollectionsMarshal.AsSpan(result), isNegative);
     }
     
-    private static void MultiplyByRadixAndAdd(List<uint> number, uint radix, uint add)
+    private static void MultiplyByRadixAndAdd(List<uint> number, uint radix, uint add) // итерация метода Горнена
     {
-        ulong carry = add;
+        uint carry = add; 
         var span = CollectionsMarshal.AsSpan(number); // прямой доступ к памяти
+
         for (int i = 0; i < span.Length; i++)
         {
-            ulong current = span[i] * (ulong)radix + carry;
-            span[i] = (uint)current;
-            carry = current >> 32; // то что вышло за пределы
+            // Разбиваем числа на половинки по 16 бит
+            uint aL = span[i] & 0xFFFF;
+            uint aH = span[i] >> 16;
+            uint rL = radix & 0xFFFF;
+            uint rH = radix >> 16;
+
+            // Делаем 4 умножения (результат каждого гарантированно <= 32 бит)
+            uint p0 = aL * rL;
+            uint p1 = aL * rH;
+            uint p2 = aH * rL;
+            uint p3 = aH * rH;
+
+            // Складываем младшие 16 бит (с учетом старого переноса)
+            uint lowSum = (p0 & 0xFFFF) + (carry & 0xFFFF);
+            uint lowCarry = lowSum >> 16;
+
+            // Складываем средние 16 бит (крест-накрест)
+            uint midSum = (p0 >> 16) + (p1 & 0xFFFF) + (p2 & 0xFFFF) + (carry >> 16) + lowCarry;
+            uint midCarry = midSum >> 16;
+
+            // Складываем старшие 16 бит для нового переноса
+            uint highSum = p3 + (p1 >> 16) + (p2 >> 16) + midCarry;
+
+            // Собираем текущий блок из средних и младших 16 бит
+            span[i] = (midSum << 16) | (lowSum & 0xFFFF);
+            carry = highSum; // то что вышло за пределы
         } 
+    
         while (carry > 0) // тогда будет еще один разряд 
         {
-            number.Add((uint)carry);
-            carry >>= 32;
+            number.Add(carry);
+            carry = 0; 
         }
     }
     
@@ -240,7 +265,7 @@ public sealed class BetterBigInteger : IBigInteger, IComparable<BetterBigInteger
         return a + (-b);
     }
 
-    public static BetterBigInteger operator -(BetterBigInteger a)
+    public static BetterBigInteger operator -(BetterBigInteger a) // унарный минус
     {
         if (a.GetDigits().Length == 1 && a.GetDigits()[0] == 0) return a;
         return new BetterBigInteger(a.GetDigits().ToArray(), !a.IsNegative); // меняем знак числа
@@ -252,14 +277,32 @@ public sealed class BetterBigInteger : IBigInteger, IComparable<BetterBigInteger
         var db = b.GetDigits();
         int maxLen = Math.Max(da.Length, db.Length); // макс длина цифр
         List<uint> res = new List<uint>(maxLen + 1);
-        ulong carry = 0;
+    
+        uint carry = 0;
+    
         for (int i = 0; i < maxLen || carry > 0; i++) // складываем как в школе с переносом(carry)
         {
-            ulong sum = carry;
-            if (i < da.Length) sum += da[i];
-            if (i < db.Length) sum += db[i];
-            res.Add((uint)sum); // добавляем
-            carry = sum >> 32; // все что выехало за 32 бит
+            uint aDigit = (i < da.Length) ? da[i] : 0;
+            uint bDigit = (i < db.Length) ? db[i] : 0;
+
+            // разбиваем текущие блоки на половинки
+            uint aLow = aDigit & 0xFFFF;
+            uint aHigh = aDigit >> 16;
+        
+            uint bLow = bDigit & 0xFFFF;
+            uint bHigh = bDigit >> 16;
+
+            // складываем младшие 16 бит и прошлый перенос
+            uint sumLow = aLow + bLow + carry;
+        
+            // складываем старшие 16 бит и перенос от сложения младших
+            uint sumHigh = aHigh + bHigh + (sumLow >> 16);
+        
+            //собираем 32-битный блок
+            uint sum = (sumHigh << 16) | (sumLow & 0xFFFF);
+        
+            res.Add(sum); // добавляем
+            carry = sumHigh >> 16; 
         }
         return res.ToArray();
     }
@@ -269,21 +312,25 @@ public sealed class BetterBigInteger : IBigInteger, IComparable<BetterBigInteger
         var dl = larger.GetDigits();
         var ds = smaller.GetDigits();
         List<uint> res = new List<uint>(dl.Length);
-        long borrow = 0;
+        uint borrow = 0;
         for (int i = 0; i < dl.Length; i++)
         {
-            long diff = dl[i] - borrow; // вычитаем, что заняли на прошлом шаге
-            if (i < ds.Length) diff -= ds[i]; 
-            if (diff < 0) // если < 0, то занимаем
+            uint lDigit = dl[i];
+            uint sDigit = (i < ds.Length) ? ds[i] : 0;
+
+            uint diff = lDigit - sDigit - borrow; // вычитаем, что заняли на прошлом шаге
+
+            // Проверка на необходимость заёма 
+            if (lDigit < sDigit || (lDigit == sDigit && borrow > 0)) 
             {
-                diff += 0x100000000L; // прибавляем 2^32
+                // если < 0, то занимаем
                 borrow = 1;
             }
             else
             {
                 borrow = 0;
             }
-            res.Add((uint)diff);
+            res.Add(diff);
         }
         return res.ToArray();
     }
@@ -360,12 +407,20 @@ public sealed class BetterBigInteger : IBigInteger, IComparable<BetterBigInteger
 
         if (val.IsNegative)
         {
-            ulong carry = 1;
+            uint carry = 1; 
             for (int i = 0; i < length; i++)
             {
-                ulong sum = (~res[i]) + carry;
-                res[i] = (uint)sum;
-                carry = sum >> 32; // смотрим нужно ли переносить 1 
+                uint inverted = ~res[i]; // инвертируем все биты текущего блока
+
+                // разбиваем инвертированный блок на половинки
+                uint low = (inverted & 0xFFFF) + carry;
+                uint high = (inverted >> 16) + (low >> 16); // перенос от младшей части
+
+                // Собираем обратно
+                res[i] = (high << 16) | (low & 0xFFFF);
+            
+                
+                carry = high >> 16; 
             }
         }
         return res;
@@ -374,16 +429,22 @@ public sealed class BetterBigInteger : IBigInteger, IComparable<BetterBigInteger
     private static BetterBigInteger FromTwosComplement(uint[] tc)
     {
         if (tc.Length == 0) return new BetterBigInteger(new uint[] { 0 }); // если пустой массив
-        bool isNeg = (tc[^1] & 0x80000000) != 0; // проверка на знак через побитовое и 
-        if (!isNeg) return new BetterBigInteger(tc); // ничего не делаем если полож
+        bool isNeg = (tc[^1] & 0x80000000) != 0; // проверка на знак
+        if (!isNeg) return new BetterBigInteger(tc);
 
         uint[] res = new uint[tc.Length]; // инверсия + 1 
-        ulong carry = 1;
+        uint carry = 1; 
         for (int i = 0; i < tc.Length; i++)
         {
-            ulong sum = (~tc[i]) + carry;
-            res[i] = (uint)sum;
-            carry = sum >> 32;
+            uint inverted = ~tc[i]; // инвертируем
+            
+            uint low = (inverted & 0xFFFF) + carry;
+            uint high = (inverted >> 16) + (low >> 16); 
+
+            // Собираем обратно
+            res[i] = (high << 16) | (low & 0xFFFF);
+            // смотрим нужно ли переносить 1 в следующий блок
+            carry = high >> 16; 
         }
         return new BetterBigInteger(res, true);
     }
@@ -534,15 +595,23 @@ public sealed class BetterBigInteger : IBigInteger, IComparable<BetterBigInteger
 
     private static uint DivideByRadix(List<uint> number, uint radix)
     {
-        ulong rem = 0;
+        uint rem = 0;
         var span = CollectionsMarshal.AsSpan(number);
         for (int i = span.Length - 1; i >= 0; i--)
         {
-            ulong current = (rem << 32) | span[i]; // остаток от пред блока с текущим
-            span[i] = (uint)(current / radix); // делим это на основание
-            rem = current % radix; // новый остаток для след
+            uint current = span[i];
+        
+            uint tempHigh = (rem << 16) | (current >> 16);
+            uint qHigh = tempHigh / radix;
+            rem = tempHigh % radix;
+
+            uint tempLow = (rem << 16) | (current & 0xFFFF); // остаток от пред блока с текущим
+            uint qLow = tempLow / radix;
+        
+            span[i] = (qHigh << 16) | qLow; // делим это на основание
+            rem = tempLow % radix; // новый остаток для след
         }
-        return (uint)rem; // и есть то что мы выводим в строку
+        return rem; // и есть то что мы выводим в строку
     }
 
     private static char GetHexChar(uint val) // перевод в аски

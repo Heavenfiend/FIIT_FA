@@ -37,11 +37,11 @@ internal class FftMultiplier : IMultiplier
         }
 
         Fft(ca, true); // обратно из фурье
-
-        ulong[] resChunks = new ulong[n];
+        
+        double[] resChunks = new double[n];
         for (int i = 0; i < n; i++)
         {
-            resChunks[i] = (ulong)Math.Round(ca[i].Real); // округляем
+            resChunks[i] = Math.Round(ca[i].Real); // округляем
         }
 
         return FromChunks(resChunks, a.IsNegative != b.IsNegative); // итог
@@ -101,31 +101,41 @@ internal class FftMultiplier : IMultiplier
         }
     }
 
-    private static BetterBigInteger FromChunks(ulong[] chunks, bool isNegative) // превращаем в нормальное число
+    private static BetterBigInteger FromChunks(double[] chunks, bool isNegative) // превращаем в нормальное число
     {
-        ulong carry = 0;
+        double carry = 0; // перенос теперь тоже double
         int maxIndex = -1;
+        
+        // Массив для хранения готовых 16-битных блоков
+        uint[] uintChunks = new uint[chunks.Length];
+
         for (int i = 0; i < chunks.Length; i++) // аналог сложения в столбик(перенос все что больше 16 бит)
         {
-            ulong val = chunks[i] + carry;
-            chunks[i] = val & 0xFFFF;
-            carry = val >> 16;
-            if (chunks[i] != 0) maxIndex = i;
+            double val = chunks[i] + carry;
+            
+            double nextCarry = Math.Floor(val / 65536.0); // аналог >> 16
+            uintChunks[i] = (uint)(val - nextCarry * 65536.0); // остаток 
+            
+            carry = nextCarry;
+            if (uintChunks[i] != 0) maxIndex = i;
         }
 
         while (carry > 0) // дописываем переполнение в конец
         {
             maxIndex++;
-            if (maxIndex < chunks.Length)
+            double nextCarry = Math.Floor(carry / 65536.0);
+            uint remainder = (uint)(carry - nextCarry * 65536.0);
+
+            if (maxIndex < uintChunks.Length)
             {
-                chunks[maxIndex] = carry & 0xFFFF;
+                uintChunks[maxIndex] = remainder;
             }
             else
             {
-                Array.Resize(ref chunks, chunks.Length + 1);
-                chunks[chunks.Length - 1] = carry & 0xFFFF;
+                Array.Resize(ref uintChunks, uintChunks.Length + 1);
+                uintChunks[uintChunks.Length - 1] = remainder;
             }
-            carry >>= 16;
+            carry = nextCarry;
         }
 
         if (maxIndex < 0) return new BetterBigInteger(new uint[] { 0 }); // число состоит из 0
@@ -134,8 +144,8 @@ internal class FftMultiplier : IMultiplier
         uint[] res = new uint[uintLen];
         for (int i = 0; i < uintLen; i++)
         {
-            uint low = (uint)(i * 2 < chunks.Length ? chunks[i * 2] : 0);
-            uint high = (uint)(i * 2 + 1 < chunks.Length ? chunks[i * 2 + 1] : 0);
+            uint low = (uint)(i * 2 < uintChunks.Length ? uintChunks[i * 2] : 0);
+            uint high = (uint)(i * 2 + 1 < uintChunks.Length ? uintChunks[i * 2 + 1] : 0);
             res[i] = low | (high << 16); // склеиваем тлоько high вставляем на 16 бит позже
         }
 

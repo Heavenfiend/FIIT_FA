@@ -49,17 +49,42 @@ internal class KaratsubaMultiplier : IMultiplier
 
         for (int i = 0; i < a.Length; i++)
         {
-            ulong carry = 0;
-            ulong ai = a[i];
+            uint carry = 0;
+            uint ai = a[i];
+
+            uint aL = ai & 0xFFFF;
+            uint aH = ai >> 16;
+
             for (int j = 0; j < b.Length; j++)
             {
-                ulong prod = ai * b[j] + res[i + j] + carry;
-                res[i + j] = (uint)prod;
-                carry = prod >> 32;
+                uint bj = b[j];
+                uint bL = bj & 0xFFFF;
+                uint bH = bj >> 16;
+
+                uint p0 = aL * bL;
+                uint p1 = aL * bH;
+                uint p2 = aH * bL;
+                uint p3 = aH * bH;
+
+                uint resL = res[i + j] & 0xFFFF;
+                uint resH = res[i + j] >> 16;
+                uint carryL = carry & 0xFFFF;
+                uint carryH = carry >> 16;
+
+                uint lowSum = (p0 & 0xFFFF) + resL + carryL;
+                uint lowCarry = lowSum >> 16;
+
+                uint midSum = (p0 >> 16) + (p1 & 0xFFFF) + (p2 & 0xFFFF) + resH + carryH + lowCarry;
+                uint midCarry = midSum >> 16;
+
+                uint highSum = p3 + (p1 >> 16) + (p2 >> 16) + midCarry;
+
+                res[i + j] = (midSum << 16) | (lowSum & 0xFFFF);
+                carry = highSum;
             }
             if (carry > 0)
             {
-                res[i + b.Length] += (uint)carry;
+                res[i + b.Length] += carry;
             }
         }
         return res;
@@ -69,14 +94,23 @@ internal class KaratsubaMultiplier : IMultiplier
     {
         int maxLen = Math.Max(a.Length, b.Length);
         uint[] res = new uint[maxLen + 1]; // на размер больше на всякий
-        ulong carry = 0;
+        uint carry = 0;
         for (int i = 0; i < maxLen || carry > 0; i++)
         {
-            ulong sum = carry;
-            if (i < a.Length) sum += a[i];
-            if (i < b.Length) sum += b[i];
-            res[i] = (uint)sum;
-            carry = sum >> 32;
+            uint aDigit = (i < a.Length) ? a[i] : 0;
+            uint bDigit = (i < b.Length) ? b[i] : 0;
+
+            uint aLow = aDigit & 0xFFFF;
+            uint aHigh = aDigit >> 16;
+
+            uint bLow = bDigit & 0xFFFF;
+            uint bHigh = bDigit >> 16;
+
+            uint sumLow = aLow + bLow + carry;
+            uint sumHigh = aHigh + bHigh + (sumLow >> 16);
+
+            res[i] = (sumHigh << 16) | (sumLow & 0xFFFF);
+            carry = sumHigh >> 16;
         }
         return res;
     }
@@ -84,21 +118,23 @@ internal class KaratsubaMultiplier : IMultiplier
     private uint[] Subtract(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b) // обычное вычитание 
     {
         uint[] res = new uint[a.Length];
-        long borrow = 0;
+        uint borrow = 0;
         for (int i = 0; i < a.Length; i++)
         {
-            long diff = a[i] - borrow;
-            if (i < b.Length) diff -= b[i];
-            if (diff < 0)
+            uint aDigit = a[i];
+            uint bDigit = (i < b.Length) ? b[i] : 0;
+
+            uint diff = aDigit - bDigit - borrow;
+
+            if (aDigit < bDigit || (aDigit == bDigit && borrow > 0))
             {
-                diff += 0x100000000L;
                 borrow = 1;
             }
             else
             {
                 borrow = 0;
             }
-            res[i] = (uint)diff;
+            res[i] = diff;
         }
         return res;
     }
@@ -117,14 +153,25 @@ internal class KaratsubaMultiplier : IMultiplier
 
     private void AddInPlace(uint[] res, ReadOnlySpan<uint> val, int offset)
     {
-        ulong carry = 0;
+        uint carry = 0;
         for (int i = 0; i < val.Length || carry > 0; i++)
         {
             if (offset + i >= res.Length) break; // проверка на выход за пределы
-            ulong sum = res[offset + i] + carry;
-            if (i < val.Length) sum += val[i]; // к сумме значение
-            res[offset + i] = (uint)sum; // записываем в массив
-            carry = sum >> 32; // перенос
+            
+            uint resDigit = res[offset + i];
+            uint valDigit = (i < val.Length) ? val[i] : 0;
+
+            uint resLow = resDigit & 0xFFFF;
+            uint resHigh = resDigit >> 16;
+
+            uint valLow = valDigit & 0xFFFF;
+            uint valHigh = valDigit >> 16;
+
+            uint sumLow = resLow + valLow + carry;
+            uint sumHigh = resHigh + valHigh + (sumLow >> 16);
+
+            res[offset + i] = (sumHigh << 16) | (sumLow & 0xFFFF); // записываем в массив
+            carry = sumHigh >> 16; // перенос
         }
     }
 }
