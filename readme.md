@@ -2,7 +2,7 @@
 
 
 
-  <a href="https://github.com/anuraghazra/github-readme-stats">
+  <a href="https://hclokomotiv.ru/">
   <img src="https://upload.wikimedia.org/wikipedia/ru/thumb/f/f4/HC_Lokomotiv_Logo.svg/500px-HC_Lokomotiv_Logo.svg.png" alt="GitHub Stats" />
 </a>
 
